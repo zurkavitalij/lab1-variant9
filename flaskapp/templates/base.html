@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Интенсивность цветовых карт{% endblock %}</title>
+  <!-- стили Bootstrap 5 подключаются расширением Bootstrap-Flask -->
+  {{ bootstrap.load_css() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark mb-4">
+  <div class="container">
+    <a class="navbar-brand" href="{{ url_for('index') }}">ЛР № 1 · Вариант 9</a>
+    <span class="navbar-text small">Изменение интенсивности цветовых карт изображения</span>
+  </div>
+</nav>
+<main class="container pb-5">
+  {% block content %}{% endblock %}
+</main>
+{{ bootstrap.load_js() }}
+{% block scripts %}{% endblock %}
+</body>
+</html>

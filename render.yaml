@@ -1,0 +1,18 @@
+# Описание веб-сервиса для render.com (Blueprint).
+# Те же настройки можно ввести вручную в форме New Web Service.
+services:
+  - type: web
+    name: lab1-variant9
+    runtime: python
+    plan: free
+    buildCommand: python -m pip install pipenv && pipenv sync
+    startCommand: pipenv run gunicorn wsgi:app --chdir flaskapp --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MAX_UPLOAD_MB
+        value: "10"

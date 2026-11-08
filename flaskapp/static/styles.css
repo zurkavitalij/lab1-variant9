@@ -1,0 +1,14 @@
+/* Дополнительные стили поверх Bootstrap 5 */
+body { background: #f4f6f9; }
+.preview { max-height: 360px; object-fit: contain; background: #fff; }
+/* цвет ползунков соответствует каналу */
+.channel-r .form-range::-webkit-slider-thumb { background: #d62728; }
+.channel-g .form-range::-webkit-slider-thumb { background: #2ca02c; }
+.channel-b .form-range::-webkit-slider-thumb { background: #1f77b4; }
+.channel-r .form-range::-moz-range-thumb { background: #d62728; }
+.channel-g .form-range::-moz-range-thumb { background: #2ca02c; }
+.channel-b .form-range::-moz-range-thumb { background: #1f77b4; }
+.channel-r output { color: #d62728; }
+.channel-g output { color: #2ca02c; }
+.channel-b output { color: #1f77b4; }
+#captcha-img { background: #fff; }

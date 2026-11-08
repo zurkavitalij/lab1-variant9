@@ -1,0 +1,30 @@
+# Проверка проекта при каждом push и pull request
+name: 'test my project'
+on: [push, pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Begin
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pipenv
+        run: python -m pip install pipenv
+
+      - name: Pipenvsync
+        run: pipenv sync
+
+      - name: Start tests
+        run: pipenv run python -m pytest -v tests
+
+      - name: Run server and client
+        env:
+          SECRET_KEY: ci-secret-key
+        run: |
+          cd flaskapp
+          pipenv run ./st.sh

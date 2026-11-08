@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <!-- Левая колонка: форма ввода -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Параметры обработки</div>
+      <div class="card-body">
+        {% if error %}
+        <div class="alert alert-danger py-2">{{ error }}</div>
+        {% endif %}
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('index') }}" novalidate>
+          {{ form.hidden_tag() }}  {# скрытое поле с CSRF-токеном #}
+
+          <div class="mb-3">
+            {{ form.upload.label(class="form-label") }}
+            {{ form.upload(class="form-control" + (" is-invalid" if form.upload.errors else ""), accept="image/*") }}
+            {% for e in form.upload.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+            <div class="form-text">JPG, PNG, BMP, GIF, WEBP, TIFF; до {{ config.MAX_CONTENT_LENGTH // 1048576 }} МБ</div>
+          </div>
+
+          <!-- ползунки интенсивности: 100 % — канал не меняется -->
+          {% for field, cls in [(form.red, 'r'), (form.green, 'g'), (form.blue, 'b')] %}
+          <div class="mb-2 channel channel-{{ cls }}">
+            <div class="d-flex justify-content-between">
+              {{ field.label(class="form-label mb-0") }}
+              <output id="{{ field.id }}-out" class="fw-bold">{{ field.data }}</output>
+            </div>
+            {{ field(class="form-range", oninput="document.getElementById('" ~ field.id ~ "-out').value=this.value") }}
+            {% for e in field.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+          </div>
+          {% endfor %}
+
+          <!-- быстрые наборы коэффициентов -->
+          <div class="mb-3">
+            <div class="form-text mb-1">Быстрый выбор:</div>
+            <div class="btn-group btn-group-sm flex-wrap" role="group">
+              <button type="button" class="btn btn-outline-secondary" data-preset="100,100,100">Сброс</button>
+              <button type="button" class="btn btn-outline-secondary" data-preset="100,0,0">Только R</button>
+              <button type="button" class="btn btn-outline-secondary" data-preset="0,100,0">Только G</button>
+              <button type="button" class="btn btn-outline-secondary" data-preset="0,0,100">Только B</button>
+              <button type="button" class="btn btn-outline-secondary" data-preset="150,100,60">Теплее</button>
+              <button type="button" class="btn btn-outline-secondary" data-preset="70,100,150">Холоднее</button>
+            </div>
+          </div>
+
+          <!-- проверка на робота -->
+          {% if config.CAPTCHA_ENABLED %}
+          <div class="mb-3">
+            {{ form.captcha.label(class="form-label") }}
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <img id="captcha-img" src="{{ url_for('captcha_image') }}" alt="Капча" class="border rounded" width="180" height="64">
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="captcha-refresh" title="Другая картинка">↻</button>
+            </div>
+            {{ form.captcha(class="form-control text-uppercase" + (" is-invalid" if form.captcha.errors else ""), placeholder="Введите 5 символов") }}
+            {% for e in form.captcha.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+          </div>
+          {% endif %}
+
+          {{ form.submit(class="btn btn-primary w-100") }}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Правая колонка: результат -->
+  <div class="col-lg-8">
+    {% if result %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header fw-semibold">
+        Результат: R = {{ result.percents[0] }} %, G = {{ result.percents[1] }} %, B = {{ result.percents[2] }} %
+        <span class="text-muted fw-normal small">({{ result.size[0] }}×{{ result.size[1] }} пикс.)</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 text-center">
+          <div class="col-md-6">
+            <div class="small text-muted mb-1">Исходное изображение</div>
+            <img src="{{ result.original }}" class="img-fluid rounded border preview" alt="Исходное изображение">
+          </div>
+          <div class="col-md-6">
+            <div class="small text-muted mb-1">Новое изображение</div>
+            <img src="{{ result.processed }}" class="img-fluid rounded border preview" alt="Новое изображение">
+            <div><a class="btn btn-sm btn-outline-primary mt-2" href="{{ result.processed }}" download="result.png">Скачать PNG</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-header fw-semibold">Графики распределения цветов</div>
+      <div class="card-body">
+        <img src="{{ result.histogram }}" class="img-fluid" alt="Гистограммы каналов">
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Статистика каналов</div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-striped mb-0 text-center align-middle">
+          <thead>
+            <tr><th class="text-start ps-3">Канал</th><th>Среднее<br><span class="fw-normal small">до → после</span></th>
+                <th>СКО<br><span class="fw-normal small">до → после</span></th><th>Мин / макс после</th></tr>
+          </thead>
+          <tbody>
+          {% for s, n in zip(result.stats_src, result.stats_new) %}
+            <tr><td class="text-start ps-3">{{ s.channel }}</td>
+                <td>{{ s.mean }} → {{ n.mean }}</td>
+                <td>{{ s.std }} → {{ n.std }}</td>
+                <td>{{ n.min }} / {{ n.max }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Как пользоваться</h5>
+        <ol class="mb-0">
+          <li>Выберите файл изображения.</li>
+          <li>Ползунками задайте интенсивность каналов R, G, B (0–300 %). Значение 100 % оставляет канал без изменений, 0 % полностью убирает цветовую карту, больше 100 % усиливает её. Можно менять один канал или сразу несколько.</li>
+          <li>Введите код с картинки и нажмите «Применить».</li>
+          <li>Приложение покажет исходное и новое изображения, графики распределения цветов и статистику по каналам.</li>
+        </ol>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // кнопки быстрого выбора выставляют значения ползунков
+  document.querySelectorAll('[data-preset]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var v = btn.dataset.preset.split(',');
+      ['red', 'green', 'blue'].forEach(function (id, i) {
+        document.getElementById(id).value = v[i];
+        document.getElementById(id + '-out').value = v[i];
+      });
+    });
+  });
+  // обновление картинки капчи; параметр t отключает кеш браузера
+  var refresh = document.getElementById('captcha-refresh');
+  if (refresh) {
+    refresh.addEventListener('click', function () {
+      document.getElementById('captcha-img').src = '{{ url_for("captcha_image") }}?t=' + Date.now();
+    });
+  }
+</script>
+{% endblock %}
