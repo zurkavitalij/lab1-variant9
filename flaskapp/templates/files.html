@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block content %}<h1>Загруженные файлы</h1>
+<p>Успешно принятые изображения. Время загрузки указано в UTC. Размер — в байтах.</p>
+<table class="table"><thead><tr><th>Имя</th><th>Размер, байт</th><th>Дата и время (UTC)</th></tr></thead>
+<tbody>{% for file in files %}<tr><td>{{ file.name }}</td><td>{{ file.size }}</td><td>{{ file.uploaded_at }}</td></tr>{% else %}<tr><td colspan="3">Файлы ещё не загружены</td></tr>{% endfor %}</tbody></table>{% endblock %}
