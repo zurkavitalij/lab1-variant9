@@ -35,3 +35,10 @@ cd flaskapp && pipenv run ./st.sh         # запуск сервера + client
 Build command: `python -m pip install pipenv && pipenv sync`
 Start command: `pipenv run gunicorn wsgi:app --chdir flaskapp --bind 0.0.0.0:$PORT --workers 1 --timeout 120`
 Переменные окружения: `PYTHON_VERSION=3.11.9`, `SECRET_KEY=<случайная строка>`.
+
+## Исправления по рецензии
+/files — история успешных загрузок из формы и API (имя, размер в байтах, дата UTC). SQLite хранит метаданные, сами файлы не сохраняются. Повторные загрузки учитываются отдельно. Для API можно передать filename, иначе используется api-image.
+/verify — токен, текущая дата сервера и X-Verify-Hash от нормализованного HTML.
+На Windows: python flaskapp/some_app.py
+UPLOAD_DATABASE задаёт путь SQLite; по умолчанию flaskapp/instance/uploads.sqlite3. На хостинге без постоянного диска история пропадает при пересоздании сервиса.
+После обновления хостинга выполните curl -i https://ВАШ-АДРЕС/verify и приложите фактический ответ и снимок страницы к отчёту. Локальная проверка не подтверждает публикацию.
