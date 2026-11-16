@@ -26,8 +26,8 @@ def make_png(color=(100, 150, 200), size=(40, 30), mode="RGB"):
 
 
 @pytest.fixture
-def client():
-    app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
+def client(tmp_path):
+    app.config.update(TESTING=True, WTF_CSRF_ENABLED=False, UPLOAD_DATABASE=str(tmp_path / "uploads.sqlite3"))
     with app.test_client() as c:
         yield c
 
@@ -149,3 +149,26 @@ def test_api_bad_requests(client):
     b64 = base64.b64encode(make_png()).decode()
     assert client.post("/api/intensity",
                        json={"imagebin": b64, "r": 500}).status_code == 400
+
+
+def test_verify(client):
+    import hashlib
+    from some_app import normalize_html, VERIFY_TOKEN
+    r = client.get('/verify')
+    assert VERIFY_TOKEN in r.text
+    assert r.headers['X-Verify-Hash'] == hashlib.sha256(normalize_html(r.text).encode()).hexdigest()
+    assert normalize_html(' a  b\r\n\n c ') == 'a b\nc'
+
+
+def test_files_history(client):
+    assert 'Файлы ещё не загружены' in client.get('/files').text
+    raw = make_png()
+    for _ in range(2):
+        r = client.post('/api/intensity', json={'imagebin': base64.b64encode(raw).decode(), 'filename': '<img>.png'})
+        assert r.status_code == 200
+    html = client.get('/files').text
+    assert html.count('&lt;img&gt;.png') == 2
+    assert str(len(raw)) in html
+    assert '+00:00' in html
+    client.post('/api/intensity', json={'imagebin': '@@@'})
+    assert client.get('/files').text.count('&lt;img&gt;.png') == 2
