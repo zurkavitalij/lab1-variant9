@@ -12,6 +12,10 @@ import binascii
 import json
 import os
 import secrets
+import hashlib
+import re
+import sqlite3
+from datetime import datetime, timezone, date
 
 import lxml.etree as ET
 from flask import (Flask, Response, jsonify, render_template, request,
@@ -43,6 +47,49 @@ app.config["MAX_CONTENT_LENGTH"] = int(
 app.config["BOOTSTRAP_SERVE_LOCAL"] = True
 # капчу можно отключить только для автоматических тестов
 app.config["CAPTCHA_ENABLED"] = os.environ.get("CAPTCHA_ENABLED", "1") != "0"
+
+
+VERIFY_TOKEN = 'TUSUR-ALEKSANDROVICH-20261108-FDAE86CD'
+app.config['UPLOAD_DATABASE'] = os.environ.get('UPLOAD_DATABASE', os.path.join(app.instance_path, 'uploads.sqlite3'))
+
+def upload_db():
+    path = app.config['UPLOAD_DATABASE']
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    conn.execute('CREATE TABLE IF NOT EXISTS uploads (id INTEGER PRIMARY KEY, name TEXT NOT NULL, size INTEGER NOT NULL, uploaded_at TEXT NOT NULL)')
+    return conn
+
+def record_upload(name, raw):
+    with upload_db() as conn:
+        conn.execute('INSERT INTO uploads(name, size, uploaded_at) VALUES (?, ?, ?)',
+                     (name, len(raw), datetime.now(timezone.utc).isoformat(timespec='seconds')))
+    conn.close()
+
+@app.route('/files')
+def files():
+    with upload_db() as conn:
+        rows = conn.execute('SELECT * FROM uploads ORDER BY id DESC').fetchall()
+    conn.close()
+    return render_template('files.html', files=rows)
+
+def normalize_html(html):
+    lines = [line.strip() for line in html.split('\n')]
+    return '\n'.join(re.sub(r'\s+', ' ', line) for line in lines if line)
+
+@app.route('/verify')
+def verify():
+    html = f"""<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Verification</title></head>
+<body>
+<h1>Verification</h1>
+<p>Token: {VERIFY_TOKEN}</p>
+<p>Date: {date.today().isoformat()}</p>
+</body>
+</html>"""
+    digest = hashlib.sha256(normalize_html(html).encode('utf-8')).hexdigest()
+    return Response(html, mimetype='text/html', headers={'X-Verify-Hash': digest})
 
 bootstrap = Bootstrap5(app)
 # функция zip нужна в шаблоне для вывода статистики «до → после»
@@ -128,7 +175,8 @@ def index():
     if form.validate_on_submit():
         percents = (form.red.data, form.green.data, form.blue.data)
         try:
-            original = image_tools.load_image(form.upload.data.read())
+            raw = form.upload.data.read()
+            original = image_tools.load_image(raw)
             processed = image_tools.process_image(original, percents)
             result = {
                 "percents": percents,
@@ -142,6 +190,7 @@ def index():
                 "stats_src": image_tools.channel_stats(original),
                 "stats_new": image_tools.channel_stats(processed),
             }
+            record_upload(form.upload.data.filename, raw)
         except ValueError as exc:
             error = str(exc)
     elif request.method == "POST":
@@ -194,6 +243,7 @@ def api_intensity():
         "image": base64.b64encode(
             image_tools.image_to_bytes(processed)).decode("ascii"),
     }
+    record_upload(str(data.get('filename') or 'api-image'), raw)
     return Response(json.dumps(body, ensure_ascii=False), status=200,
                     mimetype="application/json")
 
